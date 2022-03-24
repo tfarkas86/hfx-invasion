@@ -1,0 +1,105 @@
+
+    model{
+#1. PRIORS
+
+  #1A. Diffuse normal priors beta 
+  # betas ~ N(0, 100^2)
+    for (i in 1:n_beta) { 
+
+      beta[i] ~ dnorm(0, tau_beta)
+
+    }
+  
+  #1B. Diffuse uniform prior sigma 
+    sigma ~ dunif(0, 20)
+    tau  <- 1 / (sigma * sigma) 
+  
+  #1C. Priors random effects
+    for (i in 1:n_cln) { a_cln[i] ~ dnorm(0, tau_cln) }
+  
+  #1D. Diffuse uniform prior for random effect sigmas
+    tau_cln  <- 1 / (sigma_cln * sigma_cln)
+    sigma_cln ~ dunif(0, 20)
+
+  #1F. Diffuse uniform hyperpriors for beta sigma
+      tau_beta <- 1 / (sigma_beta * sigma_beta)
+      sigma_beta ~ dunif(0, 20)
+
+######################## 
+#2. LIKELIHOOD
+
+  for (i in 1:n) {
+
+    med[i]   ~ dbin(Pi[i], trials[i]) # Binomial
+
+    eta[i] <- beta[1] +                     # covariates
+              beta[2] * temp[i] + 
+              beta[3] * c.t[i] + 
+              beta[4] * f.t[i] 
+              #beta[5] * temp[i] * c.t[i] +
+              #beta[6] * temp[i] * f.t[i]
+
+    logit(Pi[i])  <- eta[i]  + a_cln[cln[i]]        # covariates + random effects
+
+  }
+
+# Residuals 
+
+  for (i in 1:n) {e[i] <- med[i] - Pi[i]}
+
+# Log-Likelihood
+
+  for (i in 1:n) {loglik[i] <- logdensity.bin(med[i], Pi[i], trials[i])}
+
+# ICC 
+  
+  var.e <- sd(e) ^ 2
+  var.a_cln <- sd(a_cln) ^ 2
+  icc.cln <- var.a_cln / (var.a_cln + var.e)
+ 
+# Predictions 
+
+mu42F <- ilogit(beta[1] +                     # covariates
+         beta[2] * 42 + 
+         beta[3] * 0 + 
+         beta[4] * 1 +
+         beta[5] * 42 * 0 +
+         beta[6] * 42 * 1)
+
+mu42C <- ilogit(beta[1] +                     # covariates
+         beta[2] * 42 + 
+         beta[3] * 1 + 
+         beta[4] * 0 +
+         beta[5] * 42 * 1 +
+         beta[6] * 42 * 0)
+
+mu42T <- ilogit(beta[1] +                     # covariates
+         beta[2] * 42 + 
+         beta[3] * 0 + 
+         beta[4] * 0 +
+         beta[5] * 42 * 0 +
+         beta[6] * 42 * 0)
+
+mu48F <- ilogit(beta[1] +                     # covariates
+         beta[2] * 48 + 
+         beta[3] * 0 + 
+         beta[4] * 1 +
+         beta[5] * 48 * 0 +
+         beta[6] * 48 * 1)
+
+mu48C <- ilogit(beta[1] +                     # covariates
+         beta[2] * 48 + 
+         beta[3] * 1 + 
+         beta[4] * 0 +
+         beta[5] * 48 * 1 +
+         beta[6] * 48 * 0)
+
+mu48T <- ilogit(beta[1] +                     # covariates
+         beta[2] * 48 + 
+         beta[3] * 0 + 
+         beta[4] * 0 +
+         beta[5] * 48 * 0 +
+         beta[6] * 48 * 0)
+
+}
+    

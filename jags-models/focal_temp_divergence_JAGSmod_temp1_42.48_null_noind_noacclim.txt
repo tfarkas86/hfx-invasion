@@ -1,0 +1,113 @@
+
+    model{
+#1. PRIORS
+
+  #1A. Diffuse normal priors beta 
+
+    for (i in 1:1) { 
+
+      beta[i] ~ dnorm(0, tau_beta)
+      
+    }
+  
+  #1B. Diffuse uniform prior sigma 
+    sigma ~ dunif(0, 20)
+    tau  <- 1 / (sigma * sigma) 
+  
+  #1C. Priors random effects
+    for (i in 1:n_fcln) { a[i] ~ dnorm(0, tau_fcln) }
+  
+  #1D. Diffuse uniform prior for sigma Site
+    tau_fcln  <- 1 / (sigma_fcln * sigma_fcln)
+    sigma_fcln ~ dunif(0, 20)
+
+  #1F. Diffuse uniform hyperpriors for beta sigma
+      tau_beta <- 1 / (sigma_beta * sigma_beta)
+      sigma_beta ~ dunif(0, 20)
+
+#######################
+#2. LIKELIHOOD
+
+  for (i in 1:n) {
+
+    od[i]   ~ dnorm(mu[i], tau) # Gaussian 
+
+    eta[i] <- beta[1]                     # covariates
+              # beta[2] * temp[i]  
+              # beta[3] * c.t[i] +
+              # beta[4] * f.t[i]  
+             # beta[5] * temp[i] * c.t[i] +
+             # beta[6] * temp[i] * f.t[i]
+              
+            
+    mu[i]  <- eta[i]  + a[fcln[i]]          # covariates + random effects
+
+  }
+
+# Residuals 
+
+  for (i in 1:n) {e[i] <- od[i] - mu[i]}
+
+# ICC 
+  
+  var.e <- sd(e) ^ 2
+  var.a <- sd(a) ^ 2
+  icc <- var.a / (var.a + var.e)
+
+#######################################################################
+
+#4. Log-Likelihood
+
+  for (i in 1:n) {
+
+    loglik.Pi[i] <- logdensity.norm(od[i], mu[i], tau)
+
+  }
+
+# Predictions
+
+    mu42F <- beta[1] 
+             # beta[2] * -.5 
+             # beta[3] * 0 +
+             # beta[4] * 1 
+             # beta[5] * -.5 * 0 +
+             # beta[6] * -.5 * 1
+
+    mu42C <- beta[1] 
+             # beta[2] * -.5 
+             # beta[3] * 1 +
+             # beta[4] * 0 
+             # beta[5] * -.5 * 1 +
+             # beta[6] * -.5 * 0
+
+    mu42T <- beta[1] 
+             # beta[2] * -.5 
+             # beta[3] * 0 +
+             # beta[4] * 0 
+             # beta[5] * -.5 * 0 +
+             # beta[6] * -.5 * 0
+
+    mu48F <- beta[1] 
+             # beta[2] * .5 
+             # beta[3] * 0 +
+             # beta[4] * 1 
+             # beta[5] * .5 * 0 +
+             # beta[6] * .5 * 1
+
+    mu48C <- beta[1] 
+             # beta[2] * .5 
+             # beta[3] * 1 +
+             # beta[4] * 0 
+             # beta[5] * .5 * 1 +
+             # beta[6] * .5 * 0
+
+    mu48T <- beta[1] 
+             # beta[2] * .5 
+             # beta[3] * 0 +
+             # beta[4] * 0 
+             # beta[5] * .5 * 0 +
+             # beta[6] * .5 * 0
+
+
+}
+    

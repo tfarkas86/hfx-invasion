@@ -1,0 +1,58 @@
+
+    model{
+
+#######################################################################
+#1. PRIORS
+
+  #1A. Diffuse normal priors beta 
+
+    for (i in 1:n_beta) { beta[i] ~ dnorm(0, tau_beta) }
+  
+  #1B. Priors random effects
+    for (i in 1:n_cln) { a_cln[i] ~ dnorm(0, tau_cln) }
+  
+  #1C. Diffuse uniform prior for random effect sigmas
+    tau_cln  <- 1 / (sigma_cln * sigma_cln)
+    sigma_cln ~ dunif(0, 20)
+
+  #1D. Diffuse uniform hyperpriors for beta sigma
+    tau_beta <- 1 / (sigma_beta * sigma_beta)
+    sigma_beta ~ dunif(0, 20)
+
+  #1E. Difuse uniform prior on theta
+    theta ~ dunif(0.001, 20)
+
+#######################################################################
+#2. LIKELIHOOD
+
+  for (i in 1:n) {
+    
+  #2A. Binomially distributed data
+    pm[i] ~ dbeta(a[i], b[i]) 
+
+  #2B. Fixed effects
+    eta[i] <- beta[1] +                     
+              beta[2] * temp[i] + 
+              beta[3] * c.t[i] + 
+              # beta[4] * f.t[i] +
+               beta[4] * temp[i] * c.t[i] 
+              # beta[6] * temp[i] * f.t[i]
+   
+  #2C. Full model: logit of fixed & random effects
+    logit(mu[i])  <- eta[i]  + a_cln[cln[i]]  
+    
+    cfu.m[i] <- mu[i] * trials[i]
+    cfu.v[i] <- trials[i] - cfu.m[i]
+    cfu.a[i] <- trials[i]
+
+  #2E. Shape and scale parameters dependent on theta (overdispersion)
+    a[i] <- mu[i] / theta
+    b[i] <- (1 - mu[i]) / theta
+
+  #2F. Convert to count data 
+    
+  }
+
+
+}
+    

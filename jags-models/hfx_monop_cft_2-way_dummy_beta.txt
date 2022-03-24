@@ -1,0 +1,199 @@
+
+    model{
+
+#######################################################################
+#1. PRIORS
+
+  #1A. Diffuse normal priors beta 
+
+    for (i in 1:n_beta) { beta[i] ~ dnorm(0, tau_beta) }
+  
+  #1B. Priors random effects
+    for (i in 1:n_cln) { a_cln[i] ~ dnorm(0, tau_cln) }
+  
+  #1C. Diffuse uniform prior for random effect sigmas
+    tau_cln  <- 1 / (sigma_cln * sigma_cln)
+    sigma_cln ~ dunif(0, 20)
+
+  #1D. Diffuse uniform hyperpriors for beta sigma
+    tau_beta <- 1 / (sigma_beta * sigma_beta)
+    sigma_beta ~ dunif(0, 20)
+
+  #1E. Diffuse uniform prior on overdispersion parameter
+    theta ~ dunif(0.001, 5)  
+
+#######################################################################
+#2. LIKELIHOOD
+
+  for (i in 1:n) {
+    
+  #2A. Binomially distributed data
+    med[i]   ~ dbin(Pi[i], trials[i]) 
+
+  #2B. Fixed effects
+    eta[i] <- beta[1] +                     
+              beta[2] * temp[i] + 
+              beta[3] * c.t[i] + 
+              beta[4] * f.t[i] +
+              beta[5] * temp[i] * c.t[i] +
+              beta[6] * temp[i] * f.t[i]
+   
+  #2C. Full model: logit of fixed & random effects
+    logit(mu[i])  <- eta[i]  + a_cln[cln[i]]       
+    
+  #2D. Draw probability (proportion) from beta distribution
+    Pi[i] ~ dbeta(a[i], b[i])
+
+  #2E. Shape and scale parameters dependent on theta (overdispersion)
+    a[i] <- mu[i] / theta
+    b[i] <- (1 - mu[i]) / theta
+
+  }
+#######################################################################
+#3. Model Validation Estimators
+
+  #3A. Expectes values, variance, Pearson residuals, & squared resid
+    for (i in 1:n) {
+
+      #3A1. Using predictions of Pi (beta distributed)
+
+        cfu.m.Pi[i] <- Pi[i] * trials[i]  
+        cfu.v.Pi[i] <-  trials[i] - cfu.m.Pi[i]
+        cfu.a.Pi[i] <- cfu.m.Pi[i] + cfu.v.Pi[i]
+        var.m.Pi[i] <- cfu.m.Pi[i] * (1 - Pi[i])
+        p.e.Pi[i]    <- (med[i]  - cfu.m.Pi[i]) / sqrt(var.m.Pi[i])
+        d.Pi[i]    <- pow(p.e.Pi[i], 2)
+
+      #3A2. Using predictions of mu (binomial distributed)
+
+        cfu.m.mu[i] <- mu[i] * trials[i]
+        cfu.v.mu[i] <-  trials[i] - cfu.m.mu[i]
+        cfu.a.mu[i] <- cfu.m.mu[i] + cfu.v.mu[i]
+        var.m.mu[i] <- cfu.m.mu[i] * (1 - mu[i])
+        p.e.mu[i]    <- (med[i]  - cfu.m.mu[i]) / sqrt(var.m.mu[i])
+        d.mu[i]    <- pow(p.e.mu[i], 2)
+
+    }
+
+    #3B. Simulate data from fitted model
+    for (i in 1:n) {
+
+      #3B1. Using predictions of Pi (beta distributed)
+
+        Pi.new[i] ~  dbin(Pi[i], trials[i])
+        e.new.Pi[i] <- (Pi.new[i] - cfu.m.Pi[i]) / sqrt(var.m.Pi[i])
+        d.new.Pi[i] <- pow(e.new.Pi[i], 2)
+    
+      #3B2. Using predictions of mu (binomial distributed)
+
+       mu.new[i] ~  dbin(mu[i], trials[i])
+       e.new.mu[i] <- (mu.new[i] - cfu.m.mu[i]) / sqrt(var.m.mu[i])
+       d.new.mu[i] <- pow(e.new.mu[i], 2)
+
+    }
+
+    #3C. Sum of squared Pearson residuals for observed and simulated data
+
+      #3C1. Using predictions of Pi (beta distributed)
+        fit.Pi    <- sum(d.Pi[1:n])
+        fit.new.Pi <- sum(d.new.Pi[1:n])
+
+      #3C2. Using predictions of mu (binomial distributed)
+        fit.mu    <- sum(d.mu[1:n])
+        fit.new.mu <- sum(d.new.mu[1:n])
+
+    #4. Log-Likelihood
+
+      for (i in 1:n) {
+
+        loglik.Pi[i] <- logdensity.bin(med[i], Pi[i], trials[i])
+        loglik.mu[i] <- logdensity.bin(med[i], mu[i], trials[i])
+
+      }
+
+    #5. ICC: Intra-Class Correlation Coefficient
+      
+      for(i in 1:n) { # raw error
+
+      e.Pi[i] <- cfu.m.Pi[i] - Pi[i]
+      e.mu[i] <- cfu.m.mu[i] - mu[i]
+
+      }
+
+      var.e.Pi <- sd(e.Pi) ^ 2
+      var.e.mu <- sd(e.mu) ^ 2
+      var.a_cln <- sd(a_cln) ^ 2
+      icc.cln.Pi <- var.a_cln / (var.a_cln + var.e.Pi)
+      icc.cln.mu <- var.a_cln / (var.a_cln + var.e.mu)
+
+#######################################################################
+#4. Derived Model Predictions 
+
+  #4A. Predictions for each treatment combination (n = 6)
+    
+    mu42F <- ilogit(beta[1] +                     
+             beta[2] * -.5 +
+             beta[3] * 0 +
+             beta[4] * 1 +
+             beta[5] * -.5 * 0 +
+             beta[6] * -.5 * 1)
+    
+    mu42C <- ilogit(beta[1] +                     
+             beta[2] * -.5 +
+             beta[3] * 1 +
+             beta[4] * 0 +
+             beta[5] * -.5 * 1 +
+             beta[6] * -.5 * 0)
+    
+    mu42T <- ilogit(beta[1] +                     
+             beta[2] * -.5 +
+             beta[3] * 0 +
+             beta[4] * 0 +
+             beta[5] * -.5 * 0 +
+             beta[6] * -.5 * 0)
+    
+    mu48F <- ilogit(beta[1] +                     
+             beta[2] * .5 +
+             beta[3] * 0 +
+             beta[4] * 1 +
+             beta[5] * .5 * 0 +
+             beta[6] * .5 * 1)
+    
+    mu48C <- ilogit(beta[1] +                     
+             beta[2] * .5 +
+             beta[3] * 1 +
+             beta[4] * 0 +
+             beta[5] * .5 * 1 +
+             beta[6] * .5 * 0)
+    
+    mu48T <- ilogit(beta[1] +                    
+             beta[2] * .5 +
+             beta[3] * 0 +
+             beta[4] * 0 +
+             beta[5] * .5 * 0 +
+             beta[6] * .5 * 0)
+
+  #4B. Differences among treatments
+
+    d42C.48C <- mu42C - mu48C
+    d42C.42F <- mu42C - mu42F
+    d42C.48F <- mu42C - mu48F
+    d42C.42T <- mu42C - mu42T
+    d42C.48T <- mu42C - mu48T
+    
+    d48C.42F <- mu48C - mu42F
+    d48C.48F <- mu48C - mu48F
+    d48C.42T <- mu48C - mu42T
+    d48C.48T <- mu48C - mu48T
+    
+    d42F.48F <- mu42F - mu48F
+    d42F.42T <- mu42F - mu42T
+    d42F.48T <- mu42F - mu48T
+    
+    d48F.42T <- mu48F - mu42T
+    d48F.48T <- mu48F - mu48T
+    
+    d42T.48T <- mu42T - mu48T
+
+}
+    

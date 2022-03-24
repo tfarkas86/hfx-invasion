@@ -1,0 +1,149 @@
+
+    model{
+#1. PRIORS
+
+  #1A. Diffuse normal priors beta 
+  # betas ~ N(0, 100^2)
+    for (i in 1:n_beta) { 
+
+      beta[i] ~ dnorm(0, tau_beta)
+
+    }
+  
+  #1B. Diffuse uniform prior sigma 
+    sigma ~ dunif(0, 20)
+    tau  <- 1 / (sigma * sigma) 
+  
+  #1C. Priors random effects
+    for (i in 1:n_cln) { a_cln[i] ~ dnorm(0, tau_cln) }
+
+  #1D. Diffuse uniform prior for random effect sigmas
+    tau_cln  <- 1 / (sigma_cln * sigma_cln)
+    sigma_cln ~ dunif(0, 20)
+
+  #1F. Diffuse uniform hyperpriors for beta sigma
+      tau_beta <- 1 / (sigma_beta * sigma_beta)
+      sigma_beta ~ dunif(0, 20)
+
+######################## 
+#2. LIKELIHOOD
+
+  for (i in 1:n) {
+
+    med.p[i]   ~ dnorm(mu[i], tau) # Binomial
+
+    eta[i] <- beta[1] +                     # covariates
+              beta[2] * temp[i] 
+              #beta[3] * c.t[i] + 
+              #beta[4] * f.t[i] 
+              #beta[5] * temp[i] * c.t[i] +
+              #beta[6] * temp[i] * f.t[i]
+
+    mu[i]  <- eta[i]  + a_cln[cln[i]] # covariates + random effects
+
+ 
+  }
+
+#     #3. Expectes values Y, variance Y, Pearson residuals
+    for (i in 1:n) { 
+
+       cfu.m[i] <- mu[i] * trials[i]
+       cfu.v[i] <-  trials[i] - cfu.m[i]
+       cfu.a[i] <- cfu.m[i] + cfu.v[i]
+
+#        var.m[i] <- cfu.m[i] * (1 - mu[i])
+# 
+     e[i]    <- med.p[i]  - mu[i]
+     } 
+#     
+#     #Simulate data with mean/variance taken from the fitted model
+#     for (i in 1:n) {
+#        YNew[i] ~  dnorm(mu[i], tau)                    
+#        ENew[i] <- (YNew[i] - cfu.m[i]) / sqrt(var.m[i])       
+#        D[i]    <- pow(e[i], 2)                      
+#        DNew[i] <- pow(ENew[i], 2)   
+#     }    
+# 
+# #Sum of squared Pearson residuals for observed and new data 
+# 
+#     fit    <- sum(D[1:n])
+#     fit.new <- sum(DNew[1:n])
+
+# Log-Likelihood
+
+  for (i in 1:n) {loglik[i] <- logdensity.norm(med.p[i], mu[i], tau)}
+
+# ICC 
+
+  var.e <- sd(e) ^ 2
+  var.a_cln <- sd(a_cln) ^ 2
+  icc.cln <- var.a_cln / (var.a_cln + var.e)
+
+# Predictions 
+
+# mu42F <- ilogit(beta[1] +                     # covariates
+#          beta[2] * -.5 + 
+#          beta[3] * 0 + 
+#          beta[4] * 1 +
+#          beta[5] * -.5 * 0 +
+#          beta[6] * -.5 * 1)
+# 
+# mu42C <- ilogit(beta[1] +                     # covariates
+#          beta[2] * -.5 + 
+#          beta[3] * 1 + 
+#          beta[4] * 0 +
+#          beta[5] * -.5 * 1 +
+#          beta[6] * -.5 * 0)
+# 
+# mu42T <- ilogit(beta[1] +                     # covariates
+#          beta[2] * -.5 + 
+#          beta[3] * 0 + 
+#          beta[4] * 0 +
+#          beta[5] * -.5 * 0 +
+#          beta[6] * -.5 * 0)
+# 
+# mu48F <- ilogit(beta[1] +                     # covariates
+#          beta[2] * .5 + 
+#          beta[3] * 0 + 
+#          beta[4] * 1 +
+#          beta[5] * .5 * 0 +
+#          beta[6] * .5 * 1)
+# 
+# mu48C <- ilogit(beta[1] +                     # covariates
+#          beta[2] * .5 + 
+#          beta[3] * 1 + 
+#          beta[4] * 0 +
+#          beta[5] * .5 * 1 +
+#          beta[6] * .5 * 0)
+# 
+# mu48T <- ilogit(beta[1] +                     # covariates
+#          beta[2] * .5 + 
+#          beta[3] * 0 + 
+#          beta[4] * 0 +
+#          beta[5] * .5 * 0 +
+#          beta[6] * .5 * 0)
+# 
+# # differences
+# 
+# d42C.48C <- mu42C - mu48C
+# d42C.42F <- mu42C - mu42F
+# d42C.48F <- mu42C - mu48F
+# d42C.42T <- mu42C - mu42T
+# d42C.48T <- mu42C - mu48T
+# 
+# d48C.42F <- mu48C - mu42F
+# d48C.48F <- mu48C - mu48F
+# d48C.42T <- mu48C - mu42T
+# d48C.48T <- mu48C - mu48T
+# 
+# d42F.48F <- mu42F - mu48F
+# d42F.42T <- mu42F - mu42T
+# d42F.48T <- mu42F - mu48T
+# 
+# d48F.42T <- mu48F - mu42T
+# d48F.48T <- mu48F - mu48T
+# 
+# d42T.48T <- mu42T - mu48T
+
+}
+    

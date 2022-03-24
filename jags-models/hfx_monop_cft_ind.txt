@@ -1,0 +1,83 @@
+
+    model{
+#1. PRIORS
+
+  #1A. Slab and spike prior on betas 
+  ## Stochasic Search Variable Selection
+
+  sd_bet ~ dunif(0, 100)
+  tau_in <- pow(sd_bet, -2)
+  tau[1] <- tau_in            # coef effectively zero
+  tau[2] <- tau_in / 10    # nonzero coef
+  p_ind[1] <- 1/2
+  p_ind[2] <- 1 - p_ind[1]
+
+    indA[1] ~ dcat(p_ind[]) # returns 1 or 2
+    ind[1] <- indA[1] - 1   # returns 0 or 1
+    beta[1] ~ dnorm(0, .0001)
+   # beta[1] ~ dnorm(0, tau[indA[1]])
+
+    indA[2] ~ dcat(p_ind[]) # returns 1 or 2
+    ind[2] <- indA[2] - 1   # returns 0 or 1
+    #beta[2] ~ dnorm(0, tau[indA[2]])
+     beta[2] ~ dnorm(0, .0001)
+
+    indA[3] ~ dcat(p_ind[]) # returns 1 or 2
+    ind[3] <- indA[3] - 1   # returns 0 or 1
+    #beta[3] ~ dnorm(0, tau[indA[3]])
+    #beta[4] ~ dnorm(0, tau[indA[3]])
+    beta[3] ~ dnorm(0, .0001)
+    beta[4] ~ dnorm(0, .0001)
+
+    indA[4] ~ dcat(p_ind[]) # returns 1 or 2
+    ind[4] <- indA[4] - 1   # returns 0 or 1
+    beta[5] ~ dnorm(0, tau[indA[4]])
+    beta[6] ~ dnorm(0, tau[indA[4]])
+
+  #1C. Priors on clone random effects
+    for (i in 1:n_cln) { a_cln[i] ~ dnorm(0, tau_cln) }
+   # observation-level random effect
+    for (i in 1:n) {olre[i] ~ dnorm(0, tau_OLRE)}
+  
+  #1D. Diffuse uniform prior for random effect sigmas
+    tau_cln  <- 1 / (sigma_cln * sigma_cln)
+    sigma_cln ~ dunif(0, 20)
+
+  #1F. Diffuse uniform hyperpriors for beta sigma
+      tau_beta <- 1 / (sigma_beta * sigma_beta)
+      sigma_beta ~ dunif(0, 20)
+
+ #1G. Diffuse uniform hyperpriors for OLRE sigma
+      tau_OLRE <- 1 / (sigma_OLRE * sigma_OLRE)
+      sigma_OLRE ~ dunif(0, 20)
+        
+######################## 
+#2. LIKELIHOOD
+
+  for (i in 1:n) {
+
+    med[i]   ~ dbin(Pi[i], trials[i]) # Binomial
+
+    eta[i] <- beta[1] +                      # covariates
+              beta[2] * temp[i] + 
+              beta[3] * c.t[i] +
+              beta[4] * f.t[i] +
+              beta[5] * temp[i] * c.t[i] +
+              beta[6] * temp[i] * f.t[i] 
+
+    logit(Pi[i])  <- eta[i]  + a_cln[cln[i]] + olre[i] 
+
+  }
+
+# Residuals 
+
+  for (i in 1:n) {e[i] <- med[i] - Pi[i]}
+
+# ICC 
+  
+  var.e <- sd(e) ^ 2
+  var.a_cln <- sd(a_cln) ^ 2
+  icc.cln <- var.a_cln / (var.a_cln + var.e)
+ 
+}
+    
